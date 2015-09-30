@@ -6,57 +6,43 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
 public class Analyser {
-	enum Status {PASS, FAIL};
+	enum Status {PASS, FAIL}
 	static Set<String> keywords = new HashSet<String>();
 	String path, articlestring;
 	Article article;
-	/*public static void main(String[] args) throws IOException{
-		Keywords();
-		//System.out.println(keywords);
-		//System.out.println(ReadFromFile("D:/Japanese Wikipedia/output/AA/wiki_00/article.txt"));
-		//System.out.println(ReadFromFile("D:/Japanese Wikipedia/output/AA/wiki_00/tokenized.txt"));
-		
-		//System.out.println(AnalyseThisPath("D:/Japanese Wikipedia/output/AA/wiki_00/article.txt"));
-	}*/
-	
+
 	public Analyser(String path){
-		Keywords();
+		keywords();
 		this.path = path;
 	}
 	
-	public Status AnalysePath(){
-		article = GenerateArticle(ReadFromFile(path));
+	public Status analysePath(){
+		article = generateArticle(ReadFromFile(path));
 		System.out.print(article);
-		if (ArticleAnalysis()==Status.FAIL)
+		if (articleAnalysis()==Status.FAIL)
 			return Status.FAIL;
 		return Status.PASS;
 		/*String tokenizedstring = ReadFromFile(path);
 		Tokenized tokenized = GenerateTokenized(tokenizedstring);
 		return (TokenizedAnalysis(tokenizedstring));*/
 	}
-	public Status AnalyseArticleString(String articlestring){
-		Keywords();
-		article = GenerateArticle(articlestring);
+	public Status analyseArticleString(String articlestring){
+		keywords();
+		article = generateArticle(articlestring);
 		System.out.println(article.getHead());
-		if (ArticleAnalysis()==Status.FAIL)
+		if (articleAnalysis()==Status.FAIL)
 			return Status.FAIL;
 		System.out.println("--= Article Analysis　Passed =--");
 		return Status.PASS;
 	}
 
-	public Status ArticleAnalysis(){
-		if (TitleAnalysis() == Status.FAIL || BodyAnalysis() == Status.FAIL)
+	public Status articleAnalysis(){
+		if (titleAnalysis() == Status.FAIL || bodyAnalysis() == Status.FAIL)
 			return Status.FAIL;
 		return Status.PASS;
 	}
@@ -65,19 +51,22 @@ public class Analyser {
 	 * TITLE TESTS
 	 */
 	
-	public Status TitleAnalysis()
+	public Status titleAnalysis()
 	{
-		if (TitleCharactersetAnalysis()==Status.FAIL)
+		if (titleLengthAnalysis()==Status.FAIL)
 			return Status.FAIL;
-		if (TitleLengthAnalysis()==Status.FAIL)
+		if (titleCharactersetAnalysis()==Status.FAIL)
 			return Status.FAIL;
-		if (TitleKeywordAnalysis()==Status.FAIL)
+		if (titleKeywordAnalysis()==Status.FAIL)
 			return Status.FAIL;
+
+		//TODO: Implement TitleSuffixAnalysis
+
 		return Status.PASS;
 	}
 	
 
-	public Status TitleCharactersetAnalysis(){
+	public Status titleCharactersetAnalysis(){
 		boolean containsKanji = false;
 		for (char c : article.getHead().toCharArray()){
 			if ((int)c>(Integer.parseInt("4e00", 16)))
@@ -89,13 +78,13 @@ public class Analyser {
 		}
 		return Status.PASS;
 	}
-	public Status TitleLengthAnalysis(){
+	public Status titleLengthAnalysis(){
 		if (article.getHead().length()-1>1 && article.getHead().length()-1<8)
 			return Status.PASS;
 		System.out.println("Title length fail: " + (article.getHead().length()-1));
 		return Status.FAIL;
 	}
-	public Status TitleKeywordAnalysis(){
+	public Status titleKeywordAnalysis(){
 		for (String word : keywords){
 			if (article.getHead().contains(word)){
 				System.out.println("Keyword fail: " + word);
@@ -109,7 +98,7 @@ public class Analyser {
 	 * BODY TESTS
 	 */
 	
-	private Status BodyAnalysis() {
+	private Status bodyAnalysis() {
 		return Status.PASS;
 	}
 	
@@ -117,9 +106,9 @@ public class Analyser {
 	 * TOKENIZED TESTS
 	 */
 	
-	public Status AnalyseTokens(List<TokenPair> tokenPairs) {
+	public Status analyseTokens(List<TokenPair> tokenPairs) {
 		String[] firstSentence = getPrimarySentenceWords(tokenPairs);
-		if (PrimarySentenceAnalysis(firstSentence) == Status.FAIL)
+		if (primarySentenceAnalysis(firstSentence) == Status.FAIL)
 			return Status.FAIL;
 		if (BagOfWordsAnalysis(tokenPairs) == Status.FAIL)
 				return Status.FAIL;
@@ -127,7 +116,7 @@ public class Analyser {
 		return Status.PASS;
 	}
 	
-	private Status PrimarySentenceAnalysis(String[] firstSentence) {
+	private Status primarySentenceAnalysis(String[] firstSentence) {
 		return Status.PASS;
 	}
 
@@ -135,7 +124,7 @@ public class Analyser {
 		BagOfTokens bag = new BagOfTokens();
 		for (TokenPair tokenPair: tokenPairs){
 			
-			bag.add(tokenPair.getWord());
+			bag.addSingle(tokenPair.getWord());
 		}
 		System.out.println("Bag of words:\n" + bag);
 		return Status.PASS;
@@ -153,7 +142,7 @@ public class Analyser {
 					break;
 				}
 			}
-			if (tokenPair.getTokens()[0].equals("記号") && record == false){
+			if (tokenPair.getTokens()[0].equals("記号") && !record){
 				record = true;
 				start=count;
 				count=0;
@@ -169,9 +158,9 @@ public class Analyser {
 	}
 
 	/*
-	 * Keywords list initialization (from text file titlekeywords.txt)
+	 * keywords list initialization (from text file titlekeywords.txt)
 	 */
-	void Keywords(){
+	void keywords(){
 		try (BufferedReader br = new BufferedReader(new FileReader("src/titlekeywords.txt"))){
 			String line;
 			while ((line = br.readLine()) != null){
@@ -186,7 +175,7 @@ public class Analyser {
 		}
 	}
 	
-	private static Article GenerateArticle(String articlestring) {
+	private static Article generateArticle(String articlestring) {
 		String head = articlestring.split("\n")[0];
 		String body = articlestring.substring(head.length()+3);
 		return new Article(head, body);

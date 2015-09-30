@@ -1,28 +1,33 @@
 package com.holdaas.app;
 
+import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 
 public class BagOfTokens {
-	private Map<String, Integer> list;
+	private Map<String, Integer> map;
 	public BagOfTokens(){
-		list = new HashMap<String, Integer>();
+		map = new HashMap<String, Integer>();
 	}
 	
-	public void add(String word){
+	public void addSingle(String word){
 		if (isValid(word)){
-			if (list.containsKey(word)){
-				list.replace(word, list.get(word)+1);
+			if (map.containsKey(word)){
+				map.replace(word, map.get(word)+1);
 			}
-			else list.put(word, 1);
+			else map.put(word, 1);
+		}
+	}
+	public void addSet(List<TokenPair> tokenPairs){
+		for (TokenPair tokenPair: tokenPairs){
+			addSingle(tokenPair.getWord());
 		}
 	}
 	public String toString(){
-		//valueLimit(2);
 		sort();
 		String output = "";
-		for (Map.Entry<String, Integer> entry : list.entrySet()){
+		for (Map.Entry<String, Integer> entry : map.entrySet()){
 			output += entry.getKey() + ": " + entry.getValue() + "\n";
 		}
 		return output;
@@ -38,13 +43,18 @@ public class BagOfTokens {
 			return false;
 		return true;
 	}
-	
 	public void sort(){
+		sort(0);
+	}
+	public void sort(int limit){
+		if (limit!=0){
+			valueLimit(0);
+		}
 		Map<String, Integer> sortedMap = new LinkedHashMap<String, Integer>();
-		Map<String, Integer> copy = list;
+		Map<String, Integer> copy = map;
 		int highest;
 		String word;
-		while(sortedMap.size()<list.size()){
+		while(sortedMap.size()< map.size()){
 			word = "";
 			highest = 0;
 			
@@ -57,15 +67,25 @@ public class BagOfTokens {
 			copy.remove(word);
 			sortedMap.put(word, highest);
 		}
-		list = sortedMap;
+		map = sortedMap;
 	}
 	/* Recommended to do before sorting */
 	public void valueLimit(int limit){
 		Map<String, Integer> limitedList = new HashMap<String, Integer>();
-		for(Map.Entry<String, Integer> entry : list.entrySet()){
+		for(Map.Entry<String, Integer> entry : map.entrySet()){
 			if (entry.getValue().intValue()>limit)
 				limitedList.put(entry.getKey(), entry.getValue());
 		}
-		list = limitedList;
+		map = limitedList;
+	}
+
+	public void merge(BagOfTokens inbag){
+		for (Map.Entry<String, Integer> entry : inbag.getMap().entrySet()){
+			addSingle(entry.getKey());
+		}
+	}
+
+	public Map<String, Integer> getMap(){
+		return map;
 	}
 }
