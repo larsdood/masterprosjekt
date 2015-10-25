@@ -6,6 +6,7 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -153,6 +154,35 @@ public class Analyser {
 		for(int i = start; i<end; i++){
 			output[i-start] = tokenPairs.get(i+1).getWord();
 			System.out.println(output[i-start]);
+		}
+		return output;
+	}
+
+	private List<TokenPair> getPrimarySentenceTokens(List<TokenPair> tokenPairs){
+		int periodPosition = 0;
+
+		int start=0,end=0,count=0;
+		boolean record = false;
+
+		for(TokenPair tokenPair : tokenPairs){
+			if (record){
+				if (tokenPair.getWord().equals("。")){
+					count++;
+					end = count;
+					break;
+				}
+			}
+			if (tokenPair.getTokens()[0].equals("記号") && !record){
+				record = true;
+				start=count;
+				count=0;
+			}
+			count++;
+		}
+		List<TokenPair> output = new ArrayList<TokenPair>();
+		for (int i = start; i<end;i++){
+			output.add(i-start, tokenPairs.get(i));
+			System.out.println(output.get(i-start));
 		}
 		return output;
 	}

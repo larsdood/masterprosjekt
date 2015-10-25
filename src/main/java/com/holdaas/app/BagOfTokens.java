@@ -1,16 +1,13 @@
 package com.holdaas.app;
 
-import java.util.List;
-import java.util.Map;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
+import java.util.*;
 
 public class BagOfTokens {
 	private Map<String, Integer> map;
 	public BagOfTokens(){
 		map = new HashMap<String, Integer>();
 	}
-	
+	private List<String> excludeset = new ArrayList<>();
 	public void addSingle(String word){
 		if (isValid(word)){
 			if (map.containsKey(word)){
@@ -48,7 +45,7 @@ public class BagOfTokens {
 	}
 	public void sort(int limit){
 		if (limit!=0){
-			valueLimit(0);
+			valueLimit(limit);
 		}
 		Map<String, Integer> sortedMap = new LinkedHashMap<String, Integer>();
 		Map<String, Integer> copy = map;
@@ -87,5 +84,9 @@ public class BagOfTokens {
 
 	public Map<String, Integer> getMap(){
 		return map;
+	}
+
+	private void PopulateExcludeSet(){
+		excludeset.add("ある");
 	}
 }

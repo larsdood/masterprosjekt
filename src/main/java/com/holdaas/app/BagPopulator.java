@@ -11,6 +11,7 @@ import java.util.List;
 public class BagPopulator {
     String samplepath;
     BagOfTokens personbag, nonpersonbag;
+    int countperson=0, countnonperson=0;
     List<TokenPair> tokenList;
     public enum Mode{
         SUBDIR,MAINDIR;
@@ -28,13 +29,20 @@ public class BagPopulator {
     }
 
     public void add(BagOfTokens inbag, boolean isPerson) {
-        if (isPerson)
+        if (isPerson) {
+            countperson++;
             personbag.merge(inbag);
-        else
+        }
+        else {
+            countnonperson++;
             nonpersonbag.merge(inbag);
+        }
     }
 
     public String toString(){
-        return ("Person bag:\n" + personbag + "\nNonperson bag:\n" + nonpersonbag);
+        personbag.sort(0);
+        nonpersonbag.sort(0);
+        return ("Total number of Persons: " + countperson + "\nPerson bag:\n" + personbag +
+                "Total number of Nonpersons: " + countnonperson + "\nNonperson bag:\n" + nonpersonbag);
     }
 }

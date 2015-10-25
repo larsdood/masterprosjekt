@@ -11,7 +11,7 @@ import java.util.List;
 import com.atilika.kuromoji.ipadic.Token;
 import com.atilika.kuromoji.ipadic.Tokenizer;
 
-public class SampleTest {
+public class MasterProgram {
 	
 	public static void main(String[] args) throws IOException{
 		
@@ -47,11 +47,23 @@ public class SampleTest {
 	public static void populateBagOfTokens(String tokenspath) throws IOException {
 		BagPopulator populator = new BagPopulator(tokenspath);
 		File[] directories = new File(tokenspath).listFiles(File::isDirectory);
+
+		List<Integer> personindex = new ArrayList<>();
+		try (BufferedReader br = new BufferedReader(new FileReader("src/isperson.txt"))) {
+			String line;
+			while ((line = br.readLine()) != null) {
+				personindex.add(Integer.parseInt(line));
+			}
+		}
+		int counter =0;
 		for (File subdir : directories){
 			BagOfTokens tempbag = new BagOfTokens();
 			List<TokenPair> tokenPairList = readTokensFile(new File(subdir.getAbsolutePath() + "/tokenized.txt"));
 			tempbag.addSet(tokenPairList);
-			populator.add(tempbag, false);
+
+
+			populator.add(tempbag, personindex.contains((Integer)counter));
+			counter++;
 		}
 		System.out.println(populator);
 	}
@@ -70,12 +82,15 @@ public class SampleTest {
 				filedir.mkdirs();
 
 				writer = new PrintWriter(filedir + "/tokenized.txt", "UTF-8");
-				writer.println(tokenize(fetchFirstArticle(file), tokenizer));
+				//System.out.println(tokenizeFirstSentence(fetchFirstArticle(file), tokenizer));
+				writer.println(tokenizeFirstSentence(fetchFirstArticle(file), tokenizer));
 				writer.close();
 				counter++;
 			}
 		}
 	}
+
+
 
 	public static void generateRelevantFiles(String datafilespath, String outputpath, Tokenizer tokenizer, Analyser analyser) throws Exception{
 		PrintWriter writer;
@@ -177,6 +192,23 @@ public class SampleTest {
 		List<Token> result = tokenizer.tokenize(input);
 		String output = "";
 		
+		for(Token token : result){
+			output += token.getSurface() + "\t" + token.getAllFeatures() + System.getProperty("line.separator");
+		}
+		output.replace("記号,一般,*,*,*,*,*", "");
+		output.replace("記号,空白,*,*,*,*,*", "");
+		return output;
+	}
+
+	private static String tokenizeFirstSentence(String s, Tokenizer tokenizer) {
+		//String input = s.substring(s.charAt("\n"), s.charAt("。"));
+		String input = s.substring(s.indexOf("\n")+2, s.indexOf("。")+1);
+		input = input.replace("\n", "");
+		//input = input.replace(" ", "");
+
+		List<Token> result = tokenizer.tokenize(input);
+		String output = "";
+
 		for(Token token : result){
 			output += token.getSurface() + "\t" + token.getAllFeatures() + System.getProperty("line.separator");
 		}
