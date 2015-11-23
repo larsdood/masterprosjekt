@@ -13,29 +13,22 @@ import java.util.Set;
 
 public class Analyser {
 	enum Status {PASS, FAIL}
-	static Set<String> keywords = new HashSet<String>();
-	String path, articlestring;
+	static Set<String> keywords = new HashSet<String>(), suffixes = new HashSet<String>();
 	Article article;
 
-	public Analyser(String path){
+	public Analyser(){
 		keywords();
-		this.path = path;
+		suffixes();
 	}
 	
-	public Status analysePath(){
+	public Status analysePath(String path){
 		article = generateArticle(ReadFromFile(path));
-		System.out.print(article);
 		if (articleAnalysis()==Status.FAIL)
 			return Status.FAIL;
 		return Status.PASS;
-		/*String tokenizedstring = ReadFromFile(path);
-		Tokenized tokenized = GenerateTokenized(tokenizedstring);
-		return (TokenizedAnalysis(tokenizedstring));*/
 	}
 	public Status analyseArticleString(String articlestring){
-		keywords();
 		article = generateArticle(articlestring);
-		System.out.println(article.getHead());
 		if (articleAnalysis()==Status.FAIL)
 			return Status.FAIL;
 		System.out.println("--= Article Analysis　Passed =--");
@@ -60,9 +53,8 @@ public class Analyser {
 			return Status.FAIL;
 		if (titleKeywordAnalysis()==Status.FAIL)
 			return Status.FAIL;
-
-		//TODO: Implement TitleSuffixAnalysis
-
+		if (titleSuffixAnalysis()==Status.FAIL)
+			return Status.FAIL;
 		return Status.PASS;
 	}
 	
@@ -80,15 +72,26 @@ public class Analyser {
 		return Status.PASS;
 	}
 	public Status titleLengthAnalysis(){
-		if (article.getHead().length()-1>1 && article.getHead().length()-1<8)
+		if (article.getHead().length()-1>1 && article.getHead().length()-1<15)
 			return Status.PASS;
 		System.out.println("Title length fail: " + (article.getHead().length()-1));
 		return Status.FAIL;
 	}
 	public Status titleKeywordAnalysis(){
+		String head = article.getHead();
 		for (String word : keywords){
-			if (article.getHead().contains(word)){
+			if (head.contains(word)){
 				System.out.println("Keyword fail: " + word);
+				return Status.FAIL;
+			}
+		}
+		return Status.PASS;
+	}
+	public Status titleSuffixAnalysis(){
+		String head = article.getHead();
+		for (String word: suffixes){
+			if (head.substring(word.length() - word.length()).contains(word)){
+				System.out.println("Suffix fail: " + word);
 				return Status.FAIL;
 			}
 		}
@@ -100,9 +103,37 @@ public class Analyser {
 	 */
 	
 	private Status bodyAnalysis() {
+		if (emptyBodyAnalysis() == Status.FAIL)
+			return Status.FAIL;
+		if (englishTranslationAnalysis() == Status.FAIL)
+			return Status.FAIL;
+		if (otherTranslationAnalysis() == Status.FAIL)
+			return Status.FAIL;
+		if (otherTranslationAnalysis() == Status.FAIL)
+			return Status.FAIL;
 		return Status.PASS;
 	}
-	
+	private Status emptyBodyAnalysis() {
+		if (article.getBody().equals("")) {
+			System.out.println("Empty body fail");
+			return Status.FAIL;
+		}
+		return Status.PASS;
+	}
+	private Status englishTranslationAnalysis() {
+		if (article.getBody().contains("英：") || article.getBody().contains("英:")) {
+			System.out.println("English translation fail");
+			return Status.FAIL;
+		}
+		return Status.PASS;
+	}
+	private Status otherTranslationAnalysis() {
+		if (article.getBody().contains("語：") || article.getBody().contains("語:")) {
+			System.out.println("Other language translation fail");
+			return Status.FAIL;
+		}
+		return Status.PASS;
+	}
 	/*
 	 * TOKENIZED TESTS
 	 */
@@ -113,7 +144,6 @@ public class Analyser {
 			return Status.FAIL;
 		if (BagOfWordsAnalysis(tokenPairs) == Status.FAIL)
 				return Status.FAIL;
-		System.out.println(firstSentence.length);
 		return Status.PASS;
 	}
 	
@@ -204,10 +234,34 @@ public class Analyser {
 			e.printStackTrace();
 		}
 	}
+
+	/* TODO: Under testing med training set 1 ga å legge til ordene i KEYWORDS istedetfor SUFFIXES
+	* TODO: precision på 80% istedetfor 64%. Vurder om ordene burde ligge i titlekeywords istedet.
+	* TODO: Hvis false negatives ikke går opp for noen training set/test set så kan det ligge noe i det. */
+	void suffixes(){
+		try (BufferedReader br = new BufferedReader(new FileReader("src/titlesuffixkeywords.txt"))){
+			String line;
+			while ((line = br.readLine()) != null){
+				suffixes.add(line);
+			}
+		} catch (FileNotFoundException e) {
+			System.out.println("Can't find list of keywords for title analysis");
+			e.printStackTrace();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
 	
 	private static Article generateArticle(String articlestring) {
 		String head = articlestring.split("\n")[0];
-		String body = articlestring.substring(head.length()+3);
+		String body = "";
+		try{
+			body = articlestring.substring(head.length()+3);
+		}
+		catch(Exception e){
+		}
+
 		return new Article(head, body);
 	}
 	
