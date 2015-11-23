@@ -513,6 +513,10 @@ public class MasterProgram {
 		BufferedReader br = new BufferedReader(new FileReader(filepath));
 		String line;
 		while ((line = br.readLine()) != null) {
+			/*if (!line.contains("NJ")){
+				line = line.replaceAll("\\D+","");
+				personIndex.add(Integer.parseInt(line));
+			}*/
 			//line = line.replaceAll("\\D+","");
 			//personIndex.add(Integer.parseInt(line));
 			if (line.matches("\\d+"))
