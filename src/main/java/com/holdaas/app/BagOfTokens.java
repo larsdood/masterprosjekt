@@ -82,11 +82,16 @@ public class BagOfTokens {
 		}
 	}
 
+
 	public Map<String, Integer> getMap(){
 		return map;
 	}
 
 	private void PopulateExcludeSet(){
 		excludeset.add("ある");
+	}
+
+	public int size() {
+		return map.size();
 	}
 }

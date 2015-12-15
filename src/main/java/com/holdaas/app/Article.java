@@ -21,4 +21,15 @@ public class Article {
 	public String toString(){
 		return "Head: " + this.head + "\nBody: " + this.body;
 	}
+	public static Article generateArticle(String articlestring) {
+		String head = articlestring.split("\n")[0];
+		String body = "";
+		try{
+			body = articlestring.substring(head.length()+3);
+		}
+		catch(Exception e){
+		}
+
+		return new Article(head, body);
+	}
 }

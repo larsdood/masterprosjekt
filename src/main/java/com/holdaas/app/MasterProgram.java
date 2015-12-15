@@ -14,40 +14,78 @@ import com.atilika.kuromoji.ipadic.Tokenizer;
 public class MasterProgram {
 	Tokenizer tokenizer;
 
+	static String helpmain = "oh please help", helpgen = "puriisu herupu";
+
 	String basefolder;
 
-	String datafilespath;
-	String tokenspath;
-	String outputpath;
-	String testsetpath;
+	String datafilesPath;
+	String tokensPath;
+	String outputPath;
+	String testsetPath;
+	String bagoftokensPath;
+	String extractPath;
 	Analyser analyser;
 
 	public MasterProgram(){
 		tokenizer = new Tokenizer();
 
 		basefolder = "D:/Japanese Wikipedia/";
-		datafilespath = basefolder + "target/";
-		tokenspath = basefolder + "tokens2/";
-		outputpath = basefolder + "output4/";
-		testsetpath = basefolder + "testset/";
+		datafilesPath = basefolder + "target/";
+		tokensPath = basefolder + "tokens2/";
+		outputPath = basefolder + "output4/";
+		testsetPath = basefolder + "testset/";
+		bagoftokensPath = basefolder + "bagoftokens/";
+		extractPath = basefolder + "extracted/";
 
-		analyser = new Analyser();
+		analyser = new Analyser(bagoftokensPath);
 	}
 
 	public static void main(String[] args) throws IOException{
 		MasterProgram masterProgram = new MasterProgram();
-		if (args[0].equals(""))
-			masterProgram.run();
-		masterProgram.run(args[0]);
+		if (args[0].equals("")) {
+			System.out.println("Invalid argument. -h for help");
+			System.exit(0);
+		}
+		if (args[0].equals("-h")){
+			if (args.length==1){
+				System.out.println(helpmain);
+				System.exit(0);
+			}
+			switch(args[1]){
+				case "gen":
+					System.out.println(helpgen);
+					break;
+			}
+		}
+		masterProgram.run(args);
 	}
 
-	public String run(String arg) throws IOException{
-		switch(arg){
-			case "generateRelevantFiles":
-				generateRelevantFiles();
+	public String run(String[] arg) throws IOException{
+		switch(arg[0]){
+			case "extractPersonArticles":
+				try{
+					extractPersonArticles(Integer.parseInt(arg[1]));
+				}
+				catch(Exception e){
+					System.out.println("Invalid input. See -h extract");
+				}
+				extractPersonArticles(Integer.parseInt(arg[1]));
 				break;
-			case "generate2":
-				generate2(2);
+			case "-gen":
+				/**
+				 * -gen: Generates article and tokenized files from the target path
+				 * @args[1] int range: Indicates the range for articles; Method will generate from 1 to range articles
+				 * per target file.
+				 */
+				try{
+					generate2(Integer.parseInt(arg[1]));
+				}
+				catch(Exception e){
+					System.out.println("Invalid input. See -h gen");
+				}
+				break;
+			case "generateSingleArticleSet":
+				generateSingleArticleSet(2);
 				break;
 			case "tokenize":
 				tokenizeArticles(2);
@@ -62,7 +100,10 @@ public class MasterProgram {
 				extractTestset();
 				break;
 			case "trainingSetTest":
-				trainingSetTest(1);
+				trainingSetTest(3);
+				break;
+			case "bagoftokensTest":
+				botTest();
 				break;
 			case "fScoreTest":
 				fScoreTest();
@@ -70,6 +111,7 @@ public class MasterProgram {
 			case "testFetch":
 				testFetch();
 				break;
+
 			default:
 				System.out.println("invalid argument: " + arg);
 				System.exit(0);
@@ -77,15 +119,83 @@ public class MasterProgram {
 		return "ok";
 	}
 
+	private void extractPersonArticles(int range) throws IOException {
+		PrintWriter writer;
+		int counter=0;
+		File[] directories = new File(datafilesPath).listFiles(File::isDirectory);
+		File newdir = new File(extractPath);
+		newdir.mkdirs();
+		String articleStr = "";
+		List<TokenPair> tokenPairs;
+		List<String> articleList = new ArrayList<String>();
+		for (File directory : directories){
+			File[] files = new File(directory.getPath()).listFiles();
+			for (File file : files){
+				for (int i = 0; i < range; i++){
+					articleStr = fetchNthArticle(file, i);
+					if (analyser.analyseArticleString(articleStr) == Analyser.Status.PASS){
+						tokenPairs = tokenizeFirstSentenceToPairList(articleStr);
+						if (analyser.analyseTokens(tokenPairs) == Analyser.Status.PASS){
+							articleList.add(getFirstSentence(articleStr));
+						}
+					}
+				}
+			}
+		}
+		List<Person> personList = new ArrayList<Person>();
+		for(String entry : articleList){
+			Person person = new Person(entry);
+			if (!person.isNull())
+				personList.add(person);
+
+		}
+		for (Person entry : personList){
+		}
+
+		writer = new PrintWriter(extractPath + "/" + "bigfile" + ".txt", "UTF-8");
+		articleList.forEach(writer::println);
+		writer.close();
+
+		writer = new PrintWriter(extractPath + "/" + "personFile" + ".txt", "UTF-8");
+		personList.forEach(writer::println);
+		writer.close();
+	}
+
+	private void generateSingleArticleSet(int range) throws IOException{
+		PrintWriter writer;
+		int counter=0;
+		File[] directories = new File(datafilesPath).listFiles(File::isDirectory);
+		File newdir = new File(outputPath);
+		newdir.mkdirs();
+		String articletext;
+		for (File directory : directories){
+			File[] files = new File(directory.getPath()).listFiles();
+			for(File file : files){
+				writer = new PrintWriter(outputPath + "/" + counter + "_article" + ".txt", "UTF-8");
+				articletext = fetchNthArticle(file, range);
+				writer.println(articletext);
+				;
+				writer.close();
+				System.out.println("Article #" + counter + ": " + Article.generateArticle(articletext).getHead());
+				counter++;
+			}
+		}
+	}
+
+	private void botTest() throws IOException {
+		/* TODO: Trenger jeg denne? */
+	}
+
 	private void trainingSetTest(int n) throws IOException{
-		List<Integer> personIndex = personIndexToList("src/" + "isperson" + n + ".txt");
+		List<Integer> personIndex = personIndexToList("src/" + "isperson" + n + ".txt", 2);
 		boolean isPerson, analyserJudgement;
 		int falseNegatives=0, falsePositives=0, truePositives=0, trueNegatives=0;
-		File[] directories = new File(outputpath).listFiles(File::isDirectory);
+		File[] directories = new File(outputPath).listFiles(File::isDirectory);
 		for (int i = 0;i<directories.length;i++){
-			File article = new File(outputpath + "/File" + i + "/" + (n-1) + "_article.txt");
+			File article = new File(outputPath + "/File" + i + "/" + (n) + "_article.txt");
 			isPerson = (personIndex.contains((Integer)i));
-			analyserJudgement = analyser.analysePath(article.getAbsolutePath()) == Analyser.Status.PASS;
+			analyserJudgement = analyser.analysePath(article.getAbsolutePath()) == Analyser.Status.PASS &&
+					analyser.analyseTokens(readTokensFile(new File(outputPath + "File" + i + "/" + (n) + "_tokenized.txt")) ) == Analyser.Status.PASS;
 			if (isPerson)
 				if (analyserJudgement)
 					truePositives++;
@@ -108,58 +218,30 @@ public class MasterProgram {
 		}
 		System.out.println("True Positives: " + truePositives + ", False Negatives: " + falseNegatives +
 				"\nFalse Positives: " + falsePositives + ", True Negatives: " + trueNegatives);
-		double presicion = ((double)truePositives/ (truePositives + falsePositives));
+		double precision = ((double)truePositives/ (truePositives + falsePositives));
 		double recall = ((double)truePositives / (truePositives + falseNegatives));
-		System.out.println("Presicion: " + String.format("%.2f", presicion * 100) + "%, Recall: " + String.format("%.2f", recall * 100) + "%.");
-		/*
-		for (int i=0;i<n;i++){
-			File article = new File(testsetpath + i + "_article.txt");
-			File tokenized = new File(testsetpath + i + "_tokenized.txt");
-			//System.out.println("Article #" + i);
-			//System.out.println(analyser.analysePath(article.getAbsolutePath()));
-			isPerson = (personIndex.contains((Integer)i));
-			analyserJudgement = analyser.analysePath(article.getAbsolutePath()) == Analyser.Status.PASS;
-			if (isPerson)
-				if (analyserJudgement)
-					truePositives++;
-				else
-					falseNegatives++;
-			else
-			if (analyserJudgement)
-				falsePositives++;
-			else
-				trueNegatives++;
-			System.out.println("Article #" + i + ", Person index: " + isPerson + ", Analyser: " + analyserJudgement);
-			if (isPerson && !analyserJudgement)
-				System.out.println(i);
-		}
-
-		System.out.println("True Positives: " + truePositives + ", False Negatives: " + falseNegatives +
-				"\nFalse Positives: " + falsePositives + ", True Negatives: " + trueNegatives);
-		double presicion = ((double)truePositives/ (truePositives + falsePositives));
-		double recall = ((double)truePositives / (truePositives + falseNegatives));
-		System.out.println("Presicion: " + String.format("%.2f", presicion*100) + "%, Recall: " + String.format("%.2f", recall*100) + "%.");
-		*/
+		System.out.println("Presicion: " + String.format("%.2f", precision * 100) + "%, Recall: " + String.format("%.2f", recall * 100) + "%.");
+		System.out.println("F-score: " + String.format("%.2f",(2*((precision*recall)/(precision+recall)))));
 	}
 
 	private void generate2(int range) throws IOException {
 		PrintWriter writer;
 		int counter=0;
-		File[] directories = new File(datafilespath).listFiles(File::isDirectory);
-		File newdir = new File(outputpath);
+		File[] directories = new File(datafilesPath).listFiles(File::isDirectory);
+		File newdir = new File(outputPath);
 		File filedir;
 		newdir.mkdirs();
 		for (File directory : directories){
 			File[] files = new File(directory.getPath()).listFiles();
 			for(File file : files){
-				filedir = new File(outputpath + "/File" + counter + "/");
+				filedir = new File(outputPath + "/File" + counter + "/");
 				filedir.mkdirs();
 
 				for (int i=0;i<range;i++){
-					writer = new PrintWriter(filedir + "/" + i + "_article" + ".txt", "UTF-8");
+					writer = new PrintWriter(filedir + "/" + (i+1) + "_article" + ".txt", "UTF-8");
 					writer.println(fetchNthArticle(file, i));
 					writer.close();
-					writer = new PrintWriter(filedir + "/" + i + "_tokenized" + ".txt", "UTF-8");
+					writer = new PrintWriter(filedir + "/" + (i+1) + "_tokenized" + ".txt", "UTF-8");
 					writer.println(tokenizeFirstSentence(fetchNthArticle(file, i)));
 					writer.close();
 				}
@@ -176,8 +258,8 @@ public class MasterProgram {
 	private void extractTestset() throws IOException {
 		PrintWriter writer;
 		int counter=0;
-		File[] directories = new File(datafilespath).listFiles(File::isDirectory);
-		File newdir = new File(testsetpath);
+		File[] directories = new File(datafilesPath).listFiles(File::isDirectory);
+		File newdir = new File(testsetPath);
 		newdir.mkdirs();
 		for (File directory : directories){
 			File[] files = new File(directory.getPath()).listFiles();
@@ -190,7 +272,7 @@ public class MasterProgram {
 				writer.println(output.trim());
 				writer.close();
 
-				String tokenized = tokenize(output);
+				String tokenized = tokenizeFirstSentence(output);
 				writer = new PrintWriter(newdir + "/" + counter + "_"  + "tokenized.txt", "UTF-8");
 				writer.println(tokenized);
 				writer.close();
@@ -202,7 +284,7 @@ public class MasterProgram {
 
 	/* TODO: Skriv om dette i oppgaven. Relevant å beskrive datasettet jeg startet med og hvordan det er konstruert. */
 	private void countAllArticles() throws IOException {
-		File[] directories = new File(datafilespath).listFiles(File::isDirectory);
+		File[] directories = new File(datafilesPath).listFiles(File::isDirectory);
 		int fileCounter = 0, articlesCounter = 0, tempArticles=0, max=100, min=100;
 		for (File directory: directories){
 			File[] files = new File(directory.getPath()).listFiles();
@@ -223,18 +305,20 @@ public class MasterProgram {
 	}
 
 	/* TODO: Gjør lasting av personindex til en generell statisk metode */
-	private void fScoreTest(int n) throws IOException {
-		List<Integer> personIndex = personIndexToList(testsetpath + "isperson.txt");
+	private void fScoreTest(int n, boolean testBagOnly) throws IOException {
+		List<Integer> personIndex = personIndexToList(testsetPath + "isperson.txt", 2);
 		boolean isPerson, analyserJudgement;
 		int falseNegatives=0, falsePositives=0, truePositives=0, trueNegatives=0;
 
 		for (int i=0;i<n;i++){
-			File article = new File(testsetpath + i + "_article.txt");
-			File tokenized = new File(testsetpath + i + "_tokenized.txt");
+			File article = new File(testsetPath + i + "_article.txt");
+			File tokenized = new File(testsetPath + i + "_tokenized.txt");
 			//System.out.println("Article #" + i);
 			//System.out.println(analyser.analysePath(article.getAbsolutePath()));
 			isPerson = (personIndex.contains((Integer)i));
-			analyserJudgement = analyser.analysePath(article.getAbsolutePath()) == Analyser.Status.PASS;
+			if (!testBagOnly) analyserJudgement = analyser.analysePath(article.getAbsolutePath()) == Analyser.Status.PASS &&
+					analyser.analyseTokens(readTokensFile(new File(tokenized.getAbsolutePath()))) == Analyser.Status.PASS;
+			else	analyserJudgement = analyser.bagOfTokensAnalysis(readTokensFile(new File(tokenized.getAbsolutePath()))) == Analyser.Status.PASS;
 			if (isPerson)
 				if (analyserJudgement)
 					truePositives++;
@@ -252,50 +336,58 @@ public class MasterProgram {
 
 		System.out.println("True Positives: " + truePositives + ", False Negatives: " + falseNegatives +
 				"\nFalse Positives: " + falsePositives + ", True Negatives: " + trueNegatives);
-		double presicion = ((double)truePositives/ (truePositives + falsePositives));
+		double precision = ((double)truePositives/ (truePositives + falsePositives));
 		double recall = ((double)truePositives / (truePositives + falseNegatives));
-		System.out.println("Presicion: " + String.format("%.2f", presicion * 100) + "%, Recall: " + String.format("%.2f", recall * 100) + "%.");
+		System.out.println("Presicion: " + String.format("%.2f", precision * 100) + "%, Recall: " + String.format("%.2f", recall * 100) + "%.");
+		System.out.println("F-score: " + String.format("%.2f",(2*((precision*recall)/(precision+recall)))));
 
 	}
 	private void fScoreTest() throws IOException {
-		fScoreTest(378);
+		fScoreTest(378, true);
 	}
 
 	public void populateBagOfTokens() throws IOException {
-		BagPopulator populator = new BagPopulator(tokenspath);
-		File[] directories = new File(tokenspath).listFiles(File::isDirectory);
+		BagPopulator populator = new BagPopulator();
+		File[] directories = new File(outputPath).listFiles(File::isDirectory);
 
-		List<Integer> personindex1 = new ArrayList<>();
-
-		BufferedReader br = new BufferedReader(new FileReader("src/isperson1.txt"));
-		String line;
-		while ((line = br.readLine()) != null) {
-			personindex1.add(Integer.parseInt(line));
-		}
-
+		List<Integer> personindex1 = personIndexToList("src/isperson1.txt", 2),
+		personindex2 = personIndexToList("src/isperson2.txt", 2),
+		personindex3 = personIndexToList("src/isperson3.txt", 2);
+		BagOfTokens tempbag1, tempbag2, tempbag3;
+		List<TokenPair> tokenPairList1, tokenPairList2, tokenPairList3;
 		int counter =0;
 		for (File subdir : directories){
-			BagOfTokens tempbag = new BagOfTokens();
-			List<TokenPair> tokenPairList = readTokensFile(new File(subdir.getAbsolutePath() + "/tokenized0.txt"));
-			tempbag.addSet(tokenPairList);
+			tempbag1 = new BagOfTokens();
+			tempbag2 = new BagOfTokens();
+			tempbag3 = new BagOfTokens();
+			tokenPairList1 = readTokensFile(new File(subdir.getAbsolutePath() + "/1_tokenized.txt"));
+			tokenPairList2 = readTokensFile(new File(subdir.getAbsolutePath() + "/2_tokenized.txt"));
+			tokenPairList3 = readTokensFile(new File(subdir.getAbsolutePath() + "/3_tokenized.txt"));
+			tempbag1.addSet(tokenPairList1);
+			tempbag2.addSet(tokenPairList2);
+			tempbag3.addSet(tokenPairList3);
 
-			populator.add(tempbag, personindex1.contains((Integer)counter));
+			populator.add(tempbag1, personindex1.contains((Integer) counter));
+			populator.add(tempbag2, personindex2.contains((Integer)counter));
+			populator.add(tempbag3, personindex3.contains((Integer) counter));
 			counter++;
 		}
 		System.out.println(populator);
+		populator.calculatePoints();
+		populator.writeToFile(bagoftokensPath);
 	}
 
 	public void tokenizeArticles(int range) throws IOException {
 		PrintWriter writer;
 		int counter=0;
-		File[] directories = new File(datafilespath).listFiles(File::isDirectory);
-		File newdir = new File(tokenspath);
+		File[] directories = new File(datafilesPath).listFiles(File::isDirectory);
+		File newdir = new File(tokensPath);
 		File filedir;
 		newdir.mkdirs();
 		for (File directory : directories){
 			File[] files = new File(directory.getPath()).listFiles();
 			for(File file : files){
-				filedir = new File(tokenspath + "/File" + counter + "/");
+				filedir = new File(tokensPath + "/File" + counter + "/");
 				filedir.mkdirs();
 
 				for (int i=0;i<range;i++){
@@ -309,13 +401,13 @@ public class MasterProgram {
 			}
 		}
 	}
-
+	/*
 	public void generateRelevantFiles() throws IOException{
 		PrintWriter writer;
 		int counter=0, successcounter=0;
 		long timerstart, timerstop;
-		File[] directories = new File(datafilespath).listFiles(File::isDirectory);
-		File newdir = new File(outputpath);
+		File[] directories = new File(datafilesPath).listFiles(File::isDirectory);
+		File newdir = new File(outputPath);
 		newdir.mkdirs();
 		for (File directory : directories){
 			File[] files = new File(directory.getPath()).listFiles();
@@ -352,12 +444,12 @@ public class MasterProgram {
 				"\nArticles deemed possibly relevant: " + successcounter + 
 				"\nArticles deemed not relevant: " + (counter-successcounter));
 	}
-	
+	*/
 	public void generateAllFiles() throws Exception{
 		PrintWriter writer;
-		File[] directories = new File(datafilespath).listFiles(File::isDirectory);
+		File[] directories = new File(datafilesPath).listFiles(File::isDirectory);
 		for (File directory : directories){
-			File newdir = new File(outputpath + directory.getName());
+			File newdir = new File(outputPath + directory.getName());
 			newdir.mkdirs();
 			File[] files = new File(directory.getPath()).listFiles();
 			for(File file : files){
@@ -413,6 +505,23 @@ public class MasterProgram {
 		return output;
 	}
 
+	private String getFirstSentence(String s) {
+		String input;
+		//String input = s.substring(s.charAt("\n"), s.charAt("。"));
+		if (s.contains("。")) {
+			input = s.substring(s.indexOf(("\n")) + 2);
+			input = input.substring(0, input.indexOf("。") + 1);
+			//input = s.substring(s.indexOf("\n") + 2, s.indexOf("。") + 1);
+			input = input.replace("\n", "");
+			//input = input.replace(" ", "");
+		}
+		else{
+			input = s.substring(s.indexOf("\n"));
+			input = input.replace("\n", "");
+		}
+		return input;
+	}
+
 	private String tokenizeFirstSentence(String s) {
 
 		/* TODO: Sjekke om første punktum ligger inne i en parantes, som f.eks. FIL 213, Artikkel 0. */
@@ -438,6 +547,28 @@ public class MasterProgram {
 		}
 		output.replace("記号,一般,*,*,*,*,*", "");
 		output.replace("記号,空白,*,*,*,*,*", "");
+		return output;
+	}
+	private List<TokenPair> tokenizeFirstSentenceToPairList(String s) {
+		String input;
+		//String input = s.substring(s.charAt("\n"), s.charAt("。"));
+		if (s.contains("。")) {
+			input = s.substring(s.indexOf(("\n")) + 2);
+			input = input.substring(0, input.indexOf("。") + 1);
+			input = input.replace("\n", "");
+		}
+		else{
+			input = s.substring(s.indexOf("\n"));
+			input = input.replace("\n", "");
+		}
+
+		List<Token> result = tokenizer.tokenize(input);
+
+		List<TokenPair> output = new ArrayList<TokenPair>();
+
+		for(Token token : result){
+			output.add(new TokenPair(token.getSurface(), token.getAllFeaturesArray()));
+		}
 		return output;
 	}
 	
@@ -508,26 +639,41 @@ public class MasterProgram {
 
 	/* Support class for setting up a person index object that contains information of which files in a folder
 	* are articles about persons. */
-	public static List<Integer> personIndexToList (String filepath) throws IOException{
+	// 1 = ALL PERSONS
+	// 2 = JAPANESE, KOREAN, CHINESE etc.
+	// 3 = ONLY JAPANESE
+	public static List<Integer> personIndexToList (String filepath, int type) throws IOException{
 		List<Integer> personIndex = new ArrayList<>();
 		BufferedReader br = new BufferedReader(new FileReader(filepath));
 		String line;
-		while ((line = br.readLine()) != null) {
-			/*if (!line.contains("NJ")){
+		switch(type){
+			// CASE 1: All persons are added to personIndex
+			case 1: while ((line = br.readLine()) != null) {
 				line = line.replaceAll("\\D+","");
 				personIndex.add(Integer.parseInt(line));
-			}*/
-			//line = line.replaceAll("\\D+","");
-			//personIndex.add(Integer.parseInt(line));
-			if (line.matches("\\d+"))
-				personIndex.add(Integer.parseInt(line));
+			}
+				break;
+			// CASE 2: All Chinese/Korean/Japanese/etc. persons are added to personIndex
+			case 2: while ((line = br.readLine()) != null) {
+				if (!line.contains("NJ")){
+					line = line.replaceAll("\\D+","");
+					personIndex.add(Integer.parseInt(line));
+				}
+			}
+				break;
+			// CASE 3: Japanese persons only are added to personIndex
+			case 3: while ((line = br.readLine()) != null) {
+				if (line.matches("\\d+"))
+					personIndex.add(Integer.parseInt(line));
+			}
+				break;
 		}
 		return personIndex;
 	}
 
 	/* METHODS USED DURING TESTING OF DEVELOPMENT: CAN BE DELETED AT LATER TIME. NOT NECESSARY FOR FINAL PRODUCT. */
 	private void testFetch() throws IOException {
-		File[] directories = new File(datafilespath).listFiles(File::isDirectory);
+		File[] directories = new File(datafilesPath).listFiles(File::isDirectory);
 		int counter = 0;
 		for (File directory : directories){
 			File[] files = new File(directory.getPath()).listFiles();
