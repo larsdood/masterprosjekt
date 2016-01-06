@@ -5,12 +5,34 @@ package com.holdaas.app;
  */
 public class Person {
     String givenKanji, givenHiragana, familyKanji, familyHiragana;
+    boolean printBool = false;
     int birthYear;
     String profession;
 
     public Person(String input){
         parseInput(input);
     }
+
+    public String getGivenKanji() {
+        return givenKanji;
+    }
+
+    public String getGivenHiragana() {
+        return givenHiragana;
+    }
+
+    public String getFamilyKanji() {
+        return familyKanji;
+    }
+
+    public String getFamilyHiragana() {
+        return familyHiragana;
+    }
+
+    public int getBirthYear() {
+        return birthYear;
+    }
+
     private void parseInput(String input){
         /**
          * Wikipedia Articles vary wildly in format. Therefore, several regular expressions are used to capture the most
@@ -21,6 +43,7 @@ public class Person {
             temp = temp.substring(1);
         if (temp.charAt(0) == '\n')
             temp = temp.substring(1);
+
         if (temp.matches("\\d[代目].+")){
             temp = temp.substring(3);
         }
@@ -34,24 +57,23 @@ public class Person {
         }
 
         /* NAMES BEFORE PARANTHESIS */
-        System.out.println(temp);
 
         if (temp.matches("\\p{InCJKUnifiedIdeographs}+\\s\\S+[（(].+")){
-            System.out.print("Step 1, Case 1. ");
+            if (printBool) System.out.print("Step 1, Case 1. ");
             familyKanji = temp.substring(0, temp.indexOf(' '));
             temp = temp.substring(familyKanji.length()+1);
             givenKanji = temp.substring(0, firstParanthesisOpen(temp));
             temp = temp.substring(givenKanji.length() + 1);
         }
         else if (temp.matches("\\p{InCJKUnifiedIdeographs}+\\s\\S+\\s[（(].+")) {
-            System.out.print("Step 1, Case 2. " + temp);
+            if (printBool) System.out.print("Step 1, Case 2. " + temp);
             familyKanji = temp.substring(0, temp.indexOf(' '));
             temp = temp.substring(familyKanji.length()+1);
             givenKanji = temp.substring(0, firstParanthesisOpen(temp)-1);
             temp = temp.substring(givenKanji.length()+2);
         }
         else if (temp.matches("\\p{InCJKUnifiedIdeographs}+\\s\\S+[、]\\S+\\s\\S+[（(].+")){
-            System.out.print("Step 1, Case Alternate Kanjis. ");
+            if (printBool) System.out.print("Step 1, Case Alternate Kanjis. ");
             familyKanji = temp.substring(0, temp.indexOf(' '));
             temp = temp.substring(familyKanji.length()+1);
             givenKanji = temp.substring(0, temp.indexOf('、'));
@@ -60,32 +82,32 @@ public class Person {
 
         /* AFTER FIRST PARANTHESIS */
         if (temp.matches("\\d\\d\\d\\d[年].+")) {
-            System.out.print("Step 2, Case Hiragana-Only");
+            if (printBool) System.out.print("Step 2, Case Hiragana-Only");
             familyHiragana = familyKanji;
             givenHiragana = givenKanji;
             familyKanji = "N/A";
             givenKanji = "N/A";
         }
         else if (temp.matches("\\S+[、]\\d.+")){
-            System.out.println("Step 2, Disqualified 1");
+            if (printBool) System.out.println("Step 2, Disqualified 1");
 
         }
         else if (temp.matches("\\p{InHiragana}+\\s\\p{InHiragana}+[、].+")){
-            System.out.println("Step 2, Case 1");
+            if (printBool) System.out.println("Step 2, Case 1");
             familyHiragana = temp.substring(0, temp.indexOf(' '));
             temp = temp.substring(familyHiragana.length()+1);
             givenHiragana = temp.substring(0, temp.indexOf('、'));
             temp = temp.substring(givenHiragana.length()+1);
         }
         else if (temp.matches("\\p{InHiragana}+\\s\\p{InHiragana}+[)）].+")) {
-            System.out.println("Step 2, Case 2");
+            if (printBool) System.out.println("Step 2, Case 2");
             familyHiragana = temp.substring(0, temp.indexOf(' '));
             temp = temp.substring(familyHiragana.length() + 1);
             givenHiragana = temp.substring(0, firstParanthesisClose(temp));
             temp = temp.substring(givenHiragana.length() + 1);
         }
         else if (temp.matches("\\p{InHiragana}+\\s\\p{InHiragana}+\\s.+")){
-            System.out.println("Step 2, Case 3");
+            if (printBool) System.out.println("Step 2, Case 3");
             familyHiragana = temp.substring(0, temp.indexOf(' '));
             temp = temp.substring(familyHiragana.length()+1);
             if (temp.matches("[の]\\s.+")) {
@@ -103,7 +125,7 @@ public class Person {
             temp = temp.substring(givenHiragana.length()+1);
         }
         else {
-            System.out.println("Not valid: " + input);
+            if (printBool) System.out.println("Not valid: " + input);
             return;
         }
 

@@ -2,11 +2,9 @@ package com.holdaas.app;
 
 import java.io.*;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
-
-//import org.atilika.kuromoji.Token;
-//import org.atilika.kuromoji.Tokenizer;
-//import org.atilika.kuromoji.Tokenizer.Mode;
+import java.util.Properties;
 
 import com.atilika.kuromoji.ipadic.Token;
 import com.atilika.kuromoji.ipadic.Tokenizer;
@@ -14,62 +12,107 @@ import com.atilika.kuromoji.ipadic.Tokenizer;
 public class MasterProgram {
 	Tokenizer tokenizer;
 
-	static String helpmain = "oh please help", helpgen = "puriisu herupu";
+	static String helpmain = "oh please help";
 
 	String basefolder;
 
-	String datafilesPath;
-	String tokensPath;
-	String outputPath;
-	String testsetPath;
-	String bagoftokensPath;
-	String extractPath;
+	String datafilesPath,tokensPath,outputPath,testsetPath, bagoftokensPath, nameDBPath, personDBPath;
 	Analyser analyser;
+	DBHandler dbHandler;
+	Properties prop;
+	String confFileName;
 
 	public MasterProgram(){
 		tokenizer = new Tokenizer();
-
-		basefolder = "D:/Japanese Wikipedia/";
-		datafilesPath = basefolder + "target/";
-		tokensPath = basefolder + "tokens2/";
-		outputPath = basefolder + "output4/";
-		testsetPath = basefolder + "testset/";
-		bagoftokensPath = basefolder + "bagoftokens/";
-		extractPath = basefolder + "extracted/";
-
+		prop = new Properties();
+		confFileName="config.properties";
+		getConfig();
 		analyser = new Analyser(bagoftokensPath);
+		dbHandler = new DBHandler(nameDBPath, personDBPath);
 	}
 
-	public static void main(String[] args) throws IOException{
-		MasterProgram masterProgram = new MasterProgram();
+	public static void main(String[] args) throws Exception{
+
 		if (args[0].equals("")) {
-			System.out.println("Invalid argument. -h for help");
+			System.out.println("Error: No argument. -h for help");
 			System.exit(0);
 		}
+		/* HELP */
 		if (args[0].equals("-h")){
-			if (args.length==1){
-				System.out.println(helpmain);
-				System.exit(0);
-			}
-			switch(args[1]){
-				case "gen":
-					System.out.println(helpgen);
+			System.out.println(helpmain);
+			System.exit(0);
+		}
+		if (args[0].equals("-config")){
+			switch(args[1]) {
+				case "reset":
+					resetConfig();
+					System.exit(0);
 					break;
 			}
 		}
+		MasterProgram masterProgram = new MasterProgram();
 		masterProgram.run(args);
 	}
 
-	public String run(String[] arg) throws IOException{
+	public static void resetConfig(){
+		Properties prop = new Properties();
+		OutputStream output = null;
+
+		try{
+			output = new FileOutputStream("config.properties");
+
+			prop.setProperty("basefolder", "D:/Japanese Wikipedia/");
+			prop.setProperty("datafilesPath", "target/");
+			prop.setProperty("tokensPath", "tokens/");
+			prop.setProperty("outputPath", "output/");
+			prop.setProperty("testsetPath", "testset/");
+			prop.setProperty("bagoftokensPath", "bagoftokens/");
+			prop.setProperty("nameDBPath", "C:/database/NameBase.db");
+			prop.setProperty("personDBPath", "C:/database/PersonBase.db");
+
+			prop.store(output, null);
+			System.out.println("Config file reset. Please restart program.");
+		}
+		catch(Exception e){
+			System.exit(1);
+		}
+		finally{
+			try {
+				if (output != null) output.close();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+	}
+
+	public void getConfig(){
+		try{
+			InputStream is = new FileInputStream(confFileName);
+
+			prop.load(is);
+		}
+		catch(Exception e){
+			System.out.println("Config file failed load");
+			System.exit(0);
+		}
+		basefolder = prop.getProperty("basefolder");
+		datafilesPath = basefolder + prop.getProperty("datafilesPath");
+		tokensPath = basefolder + prop.getProperty("tokensPath");
+		outputPath = basefolder + prop.getProperty("outputPath");
+		testsetPath = basefolder + prop.getProperty("testsetPath");
+		bagoftokensPath = basefolder + prop.getProperty("bagoftokensPath");
+		nameDBPath = prop.getProperty("nameDBPath");
+		personDBPath = prop.getProperty("personDBPath");
+	}
+
+
+	public String run(String[] arg) throws Exception{
 		switch(arg[0]){
+			case "extractNames":
+				extractNames();
+				break;
 			case "extractPersonArticles":
-				try{
-					extractPersonArticles(Integer.parseInt(arg[1]));
-				}
-				catch(Exception e){
-					System.out.println("Invalid input. See -h extract");
-				}
-				extractPersonArticles(Integer.parseInt(arg[1]));
+				extractPersonArticles();
 				break;
 			case "-gen":
 				/**
@@ -84,6 +127,7 @@ public class MasterProgram {
 					System.out.println("Invalid input. See -h gen");
 				}
 				break;
+
 			case "generateSingleArticleSet":
 				generateSingleArticleSet(2);
 				break;
@@ -102,37 +146,35 @@ public class MasterProgram {
 			case "trainingSetTest":
 				trainingSetTest(3);
 				break;
-			case "bagoftokensTest":
-				botTest();
-				break;
 			case "fScoreTest":
 				fScoreTest();
 				break;
-			case "testFetch":
-				testFetch();
+			case "resetConf":
+				resetConf();
 				break;
 
 			default:
-				System.out.println("invalid argument: " + arg);
+				System.out.println("invalid argument: " + Arrays.toString(arg));
 				System.exit(0);
 		}
 		return "ok";
 	}
 
-	private void extractPersonArticles(int range) throws IOException {
-		PrintWriter writer;
-		int counter=0;
+	private void resetConf(){
+
+	}
+
+	private void extractNames() throws IOException {
 		File[] directories = new File(datafilesPath).listFiles(File::isDirectory);
-		File newdir = new File(extractPath);
-		newdir.mkdirs();
-		String articleStr = "";
 		List<TokenPair> tokenPairs;
-		List<String> articleList = new ArrayList<String>();
+		List<String> articleList = new ArrayList<>(), tempList;
+		List<Name> nameList = new ArrayList<>();
 		for (File directory : directories){
 			File[] files = new File(directory.getPath()).listFiles();
+			assert files != null;
 			for (File file : files){
-				for (int i = 0; i < range; i++){
-					articleStr = fetchNthArticle(file, i);
+				tempList = fetchAllArticles(file);
+				for (String articleStr : tempList){
 					if (analyser.analyseArticleString(articleStr) == Analyser.Status.PASS){
 						tokenPairs = tokenizeFirstSentenceToPairList(articleStr);
 						if (analyser.analyseTokens(tokenPairs) == Analyser.Status.PASS){
@@ -142,23 +184,83 @@ public class MasterProgram {
 				}
 			}
 		}
-		List<Person> personList = new ArrayList<Person>();
+		Name tempName;
+		for(String entry : articleList){
+			Person person = new Person(entry);
+			if (!person.isNull()){
+				if (person.getFamilyKanji().matches("\\p{InCJKUnifiedIdeographs}+") && person.getFamilyHiragana().matches("\\p{InHiragana}+")){
+					tempName = new Name(person.getFamilyKanji(), person.getFamilyHiragana());
+					boolean uniqueName = true;
+
+					for (Name name : nameList){
+						if (Name.IdenticalNames(name, tempName)){
+							uniqueName = false;
+							break;
+						}
+					}
+					if (uniqueName){
+						nameList.add(tempName);
+					}
+				}
+
+				if (person.getGivenKanji().matches("\\p{InCJKUnifiedIdeographs}+") && person.getGivenHiragana().matches("\\p{InHiragana}+")){
+					tempName = new Name(person.getGivenKanji(), person.getGivenHiragana());
+					boolean uniqueName = true;
+
+					for (Name name : nameList){
+						if (Name.IdenticalNames(name, tempName)){
+							uniqueName = false;
+							break;
+						}
+					}
+					if (uniqueName){
+						nameList.add(tempName);
+					}
+				}
+			}
+
+		}
+
+		System.out.println(nameList);
+
+		dbHandler.insertNameList(nameList);
+	}
+
+	private void extractPersonArticles() throws IOException {
+		File[] directories = new File(datafilesPath).listFiles(File::isDirectory);
+		List<TokenPair> tokenPairs;
+		List<String> articleList = new ArrayList<>(), tempList;
+		for (File directory : directories){
+			File[] files = new File(directory.getPath()).listFiles();
+			assert files != null;
+			for (File file : files){
+				tempList = fetchAllArticles(file);
+				for (String articleStr : tempList){
+					if (analyser.analyseArticleString(articleStr) == Analyser.Status.PASS){
+						tokenPairs = tokenizeFirstSentenceToPairList(articleStr);
+						if (analyser.analyseTokens(tokenPairs) == Analyser.Status.PASS){
+							articleList.add(getFirstSentence(articleStr));
+						}
+					}
+				}
+			}
+			List<Person> personList = new ArrayList<>();
+			for(String entry : articleList){
+				Person person = new Person(entry);
+				if (!person.isNull())
+					personList.add(person);
+
+			}
+			dbHandler.insertPersonList(personList);
+		}
+		List<Person> personList = new ArrayList<>();
 		for(String entry : articleList){
 			Person person = new Person(entry);
 			if (!person.isNull())
 				personList.add(person);
 
 		}
-		for (Person entry : personList){
-		}
-
-		writer = new PrintWriter(extractPath + "/" + "bigfile" + ".txt", "UTF-8");
-		articleList.forEach(writer::println);
-		writer.close();
-
-		writer = new PrintWriter(extractPath + "/" + "personFile" + ".txt", "UTF-8");
-		personList.forEach(writer::println);
-		writer.close();
+		dbHandler.insertPersonList(personList);
 	}
 
 	private void generateSingleArticleSet(int range) throws IOException{
@@ -166,24 +268,21 @@ public class MasterProgram {
 		int counter=0;
 		File[] directories = new File(datafilesPath).listFiles(File::isDirectory);
 		File newdir = new File(outputPath);
+		//noinspection ResultOfMethodCallIgnored
 		newdir.mkdirs();
 		String articletext;
 		for (File directory : directories){
 			File[] files = new File(directory.getPath()).listFiles();
+			assert files != null;
 			for(File file : files){
 				writer = new PrintWriter(outputPath + "/" + counter + "_article" + ".txt", "UTF-8");
 				articletext = fetchNthArticle(file, range);
 				writer.println(articletext);
-				;
 				writer.close();
 				System.out.println("Article #" + counter + ": " + Article.generateArticle(articletext).getHead());
 				counter++;
 			}
 		}
-	}
-
-	private void botTest() throws IOException {
-		/* TODO: Trenger jeg denne? */
 	}
 
 	private void trainingSetTest(int n) throws IOException{
@@ -193,7 +292,7 @@ public class MasterProgram {
 		File[] directories = new File(outputPath).listFiles(File::isDirectory);
 		for (int i = 0;i<directories.length;i++){
 			File article = new File(outputPath + "/File" + i + "/" + (n) + "_article.txt");
-			isPerson = (personIndex.contains((Integer)i));
+			isPerson = (personIndex.contains(i));
 			analyserJudgement = analyser.analysePath(article.getAbsolutePath()) == Analyser.Status.PASS &&
 					analyser.analyseTokens(readTokensFile(new File(outputPath + "File" + i + "/" + (n) + "_tokenized.txt")) ) == Analyser.Status.PASS;
 			if (isPerson)
@@ -221,7 +320,7 @@ public class MasterProgram {
 		double precision = ((double)truePositives/ (truePositives + falsePositives));
 		double recall = ((double)truePositives / (truePositives + falseNegatives));
 		System.out.println("Presicion: " + String.format("%.2f", precision * 100) + "%, Recall: " + String.format("%.2f", recall * 100) + "%.");
-		System.out.println("F-score: " + String.format("%.2f",(2*((precision*recall)/(precision+recall)))));
+		System.out.println("F-score: " + String.format("%.2f", (2 * ((precision * recall) / (precision + recall)))));
 	}
 
 	private void generate2(int range) throws IOException {
@@ -230,11 +329,14 @@ public class MasterProgram {
 		File[] directories = new File(datafilesPath).listFiles(File::isDirectory);
 		File newdir = new File(outputPath);
 		File filedir;
+		//noinspection ResultOfMethodCallIgnored
 		newdir.mkdirs();
 		for (File directory : directories){
 			File[] files = new File(directory.getPath()).listFiles();
+			assert files != null;
 			for(File file : files){
 				filedir = new File(outputPath + "/File" + counter + "/");
+				//noinspection ResultOfMethodCallIgnored
 				filedir.mkdirs();
 
 				for (int i=0;i<range;i++){
@@ -250,20 +352,17 @@ public class MasterProgram {
 		}
 	}
 
-	public String run() throws IOException{
-		return "No valid input argument";
-	}
-
 	/* 49th article of each file */
 	private void extractTestset() throws IOException {
 		PrintWriter writer;
 		int counter=0;
 		File[] directories = new File(datafilesPath).listFiles(File::isDirectory);
 		File newdir = new File(testsetPath);
+		//noinspection ResultOfMethodCallIgnored
 		newdir.mkdirs();
 		for (File directory : directories){
 			File[] files = new File(directory.getPath()).listFiles();
-
+			assert files != null;
 			for(File file : files){
 				System.out.print("Article number: " + counter);
 
@@ -282,12 +381,12 @@ public class MasterProgram {
 		}
 	}
 
-	/* TODO: Skriv om dette i oppgaven. Relevant å beskrive datasettet jeg startet med og hvordan det er konstruert. */
 	private void countAllArticles() throws IOException {
 		File[] directories = new File(datafilesPath).listFiles(File::isDirectory);
-		int fileCounter = 0, articlesCounter = 0, tempArticles=0, max=100, min=100;
+		int fileCounter = 0, articlesCounter = 0, tempArticles, max=100, min=100;
 		for (File directory: directories){
 			File[] files = new File(directory.getPath()).listFiles();
+			assert files != null;
 			for (File file : files){
 				tempArticles = countArticles(file);
 				if (tempArticles>max)
@@ -304,7 +403,6 @@ public class MasterProgram {
 
 	}
 
-	/* TODO: Gjør lasting av personindex til en generell statisk metode */
 	private void fScoreTest(int n, boolean testBagOnly) throws IOException {
 		List<Integer> personIndex = personIndexToList(testsetPath + "isperson.txt", 2);
 		boolean isPerson, analyserJudgement;
@@ -313,9 +411,7 @@ public class MasterProgram {
 		for (int i=0;i<n;i++){
 			File article = new File(testsetPath + i + "_article.txt");
 			File tokenized = new File(testsetPath + i + "_tokenized.txt");
-			//System.out.println("Article #" + i);
-			//System.out.println(analyser.analysePath(article.getAbsolutePath()));
-			isPerson = (personIndex.contains((Integer)i));
+			isPerson = (personIndex.contains(i));
 			if (!testBagOnly) analyserJudgement = analyser.analysePath(article.getAbsolutePath()) == Analyser.Status.PASS &&
 					analyser.analyseTokens(readTokensFile(new File(tokenized.getAbsolutePath()))) == Analyser.Status.PASS;
 			else	analyserJudgement = analyser.bagOfTokensAnalysis(readTokensFile(new File(tokenized.getAbsolutePath()))) == Analyser.Status.PASS;
@@ -339,7 +435,7 @@ public class MasterProgram {
 		double precision = ((double)truePositives/ (truePositives + falsePositives));
 		double recall = ((double)truePositives / (truePositives + falseNegatives));
 		System.out.println("Presicion: " + String.format("%.2f", precision * 100) + "%, Recall: " + String.format("%.2f", recall * 100) + "%.");
-		System.out.println("F-score: " + String.format("%.2f",(2*((precision*recall)/(precision+recall)))));
+		System.out.println("F-score: " + String.format("%.2f", (2 * ((precision * recall) / (precision + recall)))));
 
 	}
 	private void fScoreTest() throws IOException {
@@ -367,9 +463,9 @@ public class MasterProgram {
 			tempbag2.addSet(tokenPairList2);
 			tempbag3.addSet(tokenPairList3);
 
-			populator.add(tempbag1, personindex1.contains((Integer) counter));
-			populator.add(tempbag2, personindex2.contains((Integer)counter));
-			populator.add(tempbag3, personindex3.contains((Integer) counter));
+			populator.add(tempbag1, personindex1.contains(counter));
+			populator.add(tempbag2, personindex2.contains(counter));
+			populator.add(tempbag3, personindex3.contains(counter));
 			counter++;
 		}
 		System.out.println(populator);
@@ -383,17 +479,19 @@ public class MasterProgram {
 		File[] directories = new File(datafilesPath).listFiles(File::isDirectory);
 		File newdir = new File(tokensPath);
 		File filedir;
+		//noinspection ResultOfMethodCallIgnored
 		newdir.mkdirs();
 		for (File directory : directories){
 			File[] files = new File(directory.getPath()).listFiles();
+			assert files != null;
 			for(File file : files){
 				filedir = new File(tokensPath + "/File" + counter + "/");
+
+				//noinspection ResultOfMethodCallIgnored
 				filedir.mkdirs();
 
 				for (int i=0;i<range;i++){
 					writer = new PrintWriter(filedir + "/tokenized" + i + ".txt", "UTF-8");
-					//System.out.println(tokenizeFirstSentence(fetchFirstArticle(file), tokenizer));
-					//writer.println(tokenizeFirstSentence(fetchFirstArticle(file), tokenizer));
 					writer.println(tokenizeFirstSentence(fetchNthArticle(file, i)));
 					writer.close();
 				}
@@ -401,59 +499,18 @@ public class MasterProgram {
 			}
 		}
 	}
-	/*
-	public void generateRelevantFiles() throws IOException{
-		PrintWriter writer;
-		int counter=0, successcounter=0;
-		long timerstart, timerstop;
-		File[] directories = new File(datafilesPath).listFiles(File::isDirectory);
-		File newdir = new File(outputPath);
-		newdir.mkdirs();
-		for (File directory : directories){
-			File[] files = new File(directory.getPath()).listFiles();
-			for(File file : files){
-				
-				String output = fetchFirstArticle(file);
-				System.out.print("Article number: " + counter + ", "); 
-				if (analyser.analyseArticleString(output)==Analyser.Status.PASS){
-					List<TokenPair> tokenPairs = tokenizeToPairList(output);
-					
-					if(analyser.analyseTokens(tokenPairs) == Analyser.Status.PASS){
-						timerstart = System.currentTimeMillis();
-						System.out.println(file.getName());
-						writer = new PrintWriter(newdir + "/" + counter + "_" +  " article.txt" , "UTF-8");
-						writer.println(output.trim());
-						writer.close();
-						String tokenized = tokenize(output);
-
-						writer = new PrintWriter(newdir + "/" + counter + "_"  + " tokenized.txt", "UTF-8");
-						
-						writer.println(tokenized);
-						
-						writer.close();
-						timerstop = System.currentTimeMillis();
-						System.out.println("Files generated, tokenized, in " + (timerstop-timerstart) + " ms.");
-						successcounter++;
-					}
-				}
-				counter++;
-				System.out.println("");
-			}
-		}
-		System.out.println("Total amount of files processed: " + counter + 
-				"\nArticles deemed possibly relevant: " + successcounter + 
-				"\nArticles deemed not relevant: " + (counter-successcounter));
-	}
-	*/
 	public void generateAllFiles() throws Exception{
 		PrintWriter writer;
 		File[] directories = new File(datafilesPath).listFiles(File::isDirectory);
 		for (File directory : directories){
 			File newdir = new File(outputPath + directory.getName());
+			//noinspection ResultOfMethodCallIgnored
 			newdir.mkdirs();
 			File[] files = new File(directory.getPath()).listFiles();
+			assert files != null;
 			for(File file : files){
 				File filedir = new File(newdir + "/" + file.getName() + "/");
+				//noinspection ResultOfMethodCallIgnored
 				filedir.mkdirs();
 				
 				writer = new PrintWriter(filedir + "/article.txt" , "UTF-8");
@@ -479,11 +536,7 @@ public class MasterProgram {
 					output += line;
 				}
 			}
-		} catch (FileNotFoundException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 		return tokenize(output);
@@ -507,13 +560,10 @@ public class MasterProgram {
 
 	private String getFirstSentence(String s) {
 		String input;
-		//String input = s.substring(s.charAt("\n"), s.charAt("。"));
 		if (s.contains("。")) {
 			input = s.substring(s.indexOf(("\n")) + 2);
 			input = input.substring(0, input.indexOf("。") + 1);
-			//input = s.substring(s.indexOf("\n") + 2, s.indexOf("。") + 1);
 			input = input.replace("\n", "");
-			//input = input.replace(" ", "");
 		}
 		else{
 			input = s.substring(s.indexOf("\n"));
@@ -523,16 +573,11 @@ public class MasterProgram {
 	}
 
 	private String tokenizeFirstSentence(String s) {
-
-		/* TODO: Sjekke om første punktum ligger inne i en parantes, som f.eks. FIL 213, Artikkel 0. */
 		String input;
-		//String input = s.substring(s.charAt("\n"), s.charAt("。"));
 		if (s.contains("。")) {
 			input = s.substring(s.indexOf(("\n")) + 2);
 			input = input.substring(0, input.indexOf("。") + 1);
-			//input = s.substring(s.indexOf("\n") + 2, s.indexOf("。") + 1);
 			input = input.replace("\n", "");
-			//input = input.replace(" ", "");
 		}
 		else{
 			input = s.substring(s.indexOf("\n"));
@@ -551,7 +596,6 @@ public class MasterProgram {
 	}
 	private List<TokenPair> tokenizeFirstSentenceToPairList(String s) {
 		String input;
-		//String input = s.substring(s.charAt("\n"), s.charAt("。"));
 		if (s.contains("。")) {
 			input = s.substring(s.indexOf(("\n")) + 2);
 			input = input.substring(0, input.indexOf("。") + 1);
@@ -564,7 +608,7 @@ public class MasterProgram {
 
 		List<Token> result = tokenizer.tokenize(input);
 
-		List<TokenPair> output = new ArrayList<TokenPair>();
+		List<TokenPair> output = new ArrayList<>();
 
 		for(Token token : result){
 			output.add(new TokenPair(token.getSurface(), token.getAllFeaturesArray()));
@@ -579,16 +623,16 @@ public class MasterProgram {
 		
 		List<Token> result = tokenizer.tokenize(input);
 		
-		List<TokenPair> output = new ArrayList<TokenPair>();
-		
+		List<TokenPair> output = new ArrayList<>();
+
 		for(Token token : result){
 			output.add(new TokenPair(token.getSurface(), token.getAllFeaturesArray()));
 		}
-		
+
 		return output;
 	}
 
-	/* Static methods that are independent of the instance */
+	/* Static methods  */
 	public static String fetchFirstArticle(File file) throws IOException{
 		return fetchNthArticle(file, 0);
 	}
@@ -612,11 +656,28 @@ public class MasterProgram {
 			}
 		return output;
 	}
+	public static List<String> fetchAllArticles(File file) throws IOException {
+		List<String> output = new ArrayList<>();
+		boolean record = false;
+		BufferedReader br = new BufferedReader(new FileReader(file));
+		String line, temp="";
+		String newline = System.getProperty("line.separator");
+		while ((line = br.readLine() ) != null) {
+			if (line.contains("</doc>"))
+				output.add(temp);
+			else if (line.contains("<doc")) {
+				temp = "";
+				record = true;
+				} else if (record)
+					temp += line + newline;
+
+		}
+		return output;
+	}
 	public static List<TokenPair> readTokensFile(File file) throws IOException {
-		String output = "";
 		BufferedReader br = new BufferedReader(new FileReader(file));
 		String line;
-		List<TokenPair> tokenPairs = new ArrayList<TokenPair>();
+		List<TokenPair> tokenPairs = new ArrayList<>();
 		while ((line = br.readLine() ) != null){
 			if (line.contains("記号,一般,*,*,*,*,*,*,*") || line.equals(""))
 				continue;
@@ -669,22 +730,5 @@ public class MasterProgram {
 				break;
 		}
 		return personIndex;
-	}
-
-	/* METHODS USED DURING TESTING OF DEVELOPMENT: CAN BE DELETED AT LATER TIME. NOT NECESSARY FOR FINAL PRODUCT. */
-	private void testFetch() throws IOException {
-		File[] directories = new File(datafilesPath).listFiles(File::isDirectory);
-		int counter = 0;
-		for (File directory : directories){
-			File[] files = new File(directory.getPath()).listFiles();
-			for(File file : files){
-				System.out.println("NTH");
-				System.out.println(fetchNthArticle(file, 1));
-				System.out.println("FIRST");
-				System.out.println(fetchFirstArticle(file));
-				if (counter==0)
-					return;
-			}
-		}
 	}
 }

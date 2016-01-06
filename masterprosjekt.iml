@@ -13,5 +13,16 @@
     <orderEntry type="library" scope="TEST" name="Maven: junit:junit:3.8.1" level="project" />
     <orderEntry type="library" name="Maven: com.atilika.kuromoji:kuromoji-ipadic:0.9.0" level="project" />
     <orderEntry type="library" name="Maven: com.atilika.kuromoji:kuromoji-core:0.9.0" level="project" />
+    <orderEntry type="module-library">
+      <library>
+        <CLASSES>
+          <root url="jar://$USER_HOME$/Downloads/sqlite-jdbc-3.8.11.2.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES>
+          <root url="jar://$USER_HOME$/Downloads/sqlite-jdbc-3.8.11.2.jar!/" />
+        </SOURCES>
+      </library>
+    </orderEntry>
   </component>
 </module>
