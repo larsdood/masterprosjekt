@@ -108,10 +108,10 @@ public class MasterProgram {
 
 	public String run(String[] arg) throws Exception{
 		switch(arg[0]){
-			case "extractNames":
+			case "-extractNames":
 				extractNames();
 				break;
-			case "extractPersonArticles":
+			case "-extractPersons":
 				extractPersonArticles();
 				break;
 			case "-gen":
