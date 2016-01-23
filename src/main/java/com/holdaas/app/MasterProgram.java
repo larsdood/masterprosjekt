@@ -12,7 +12,16 @@ import com.atilika.kuromoji.ipadic.Tokenizer;
 public class MasterProgram {
 	Tokenizer tokenizer;
 
-	static String helpmain = "oh please help";
+	static String helpmain = "-extractNames Creates a name database based on the input data \n" +
+			"-extractPersons & Creates a person database based on the input data\n" +
+			"-genArticleSets # & Generates a set of text files containing article \\\\&and tokenized texts from 0 to the range #\n" +
+			"-genSingleArticleSet # & Generates text files for the #th article per input file\n" +
+			"-populateBag & Populates the bag of tokens *\n" +
+			"-countArticles & Outputs number of articles per input files\n" +
+			"-extractTestSet & Extracts a test set based on the input data\n" +
+			"-trainingSetTest & Tests the system accuracy against the training sets *\n" +
+			"-fScoreTest & Tests the system accuracy against the test set *\n" +
+			"-resetConf & Resets the configuration file to default";
 
 	String basefolder;
 
@@ -114,7 +123,7 @@ public class MasterProgram {
 			case "-extractPersons":
 				extractPersonArticles();
 				break;
-			case "-gen":
+			case "-genArticleSets":
 				/**
 				 * -gen: Generates article and tokenized files from the target path
 				 * @args[1] int range: Indicates the range for articles; Method will generate from 1 to range articles
@@ -124,32 +133,29 @@ public class MasterProgram {
 					generate2(Integer.parseInt(arg[1]));
 				}
 				catch(Exception e){
-					System.out.println("Invalid input. See -h gen");
+					System.out.println("Invalid input.");
 				}
 				break;
 
-			case "generateSingleArticleSet":
-				generateSingleArticleSet(2);
+			case "-genSingleArticleSet":
+				generateSingleArticleSet(Integer.parseInt(arg[1]));
 				break;
-			case "tokenize":
-				tokenizeArticles(2);
-				break;
-			case "populateBag":
+			case "-populateBag":
 				populateBagOfTokens();
 				break;
-			case "countArticles":
+			case "-countArticles":
 				countAllArticles();
 				break;
-			case "extractTestset":
+			case "-extractTestset":
 				extractTestset();
 				break;
-			case "trainingSetTest":
+			case "-trainingSetTest":
 				trainingSetTest(3);
 				break;
-			case "fScoreTest":
+			case "-fScoreTest":
 				fScoreTest();
 				break;
-			case "resetConf":
+			case "-resetConf":
 				resetConf();
 				break;
 
